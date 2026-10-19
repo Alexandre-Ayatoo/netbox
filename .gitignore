@@ -1,4 +1,6 @@
 # Python bytecode, cache directories, and test coverage output
+.env
+.env.local
 __pycache__/
 *.py[cod]
 .coverage

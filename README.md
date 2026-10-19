@@ -82,6 +82,7 @@ NetBox automatically logs the creation, modification, and deletion of all manage
 
 ## Getting Started
 
+* Pour déployer ce dépôt sur Coolify, suivez le [guide d'installation rapide](contrib/coolify/README.md).
 * Just want to explore? Check out [our public demo](https://demo.netbox.dev/) right now!
 * The [official documentation](https://docs.netbox.dev) offers a comprehensive introduction.
 * Check out [our wiki](https://github.com/netbox-community/netbox/wiki/Community-Contributions) for even more projects to get the most out of NetBox!
