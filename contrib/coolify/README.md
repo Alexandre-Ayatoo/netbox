@@ -1,5 +1,27 @@
 # Déployer NetBox sur Coolify
 
+## Instance restaurée avec plugins et Keycloak
+
+Pour l'instance migrée en NetBox **4.6.10** avec ses cinq plugins et Keycloak,
+utiliser **`/docker-compose.production.yml`** dans Coolify. Ce fichier utilise les
+mêmes images, variables, contrôles de santé et volumes que
+`/docker-compose.migration.yml`, qui reste compatible avec les déploiements
+existants. Changer le chemin Compose dans la même ressource Coolify ne nécessite
+pas de restauration de base.
+
+Conserver les noms des six volumes `migration-*` et le fichier privé
+`/etc/netbox-migration/settings.json` sur le serveur Docker : ils contiennent les
+données et réglages actifs de production. Le préfixe historique des volumes ne
+signifie pas qu'ils peuvent être supprimés après la migration. Le fichier privé
+contient notamment la clé Django, les peppers API, les réglages des plugins et les
+secrets Keycloak. Il est monté en lecture seule dans netbox et worker.
+
+Les opérations d'export et les précisions sur les réglages repris figurent dans le
+[guide de migration](migration/README.md). La mise à niveau de NetBox 4.6.10 et des
+plugins se prépare séparément, avec une nouvelle sauvegarde avant la mise à jour.
+
+## Nouvelle installation depuis le code du dépôt
+
 Cette configuration construit NetBox depuis ce dépôt et déploie PostgreSQL, Redis,
 NetBox, son worker et Nginx. Les migrations, les fichiers statiques et le premier
 compte administrateur sont préparés automatiquement au démarrage.

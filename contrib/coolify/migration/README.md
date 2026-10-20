@@ -1,5 +1,11 @@
 # Migration de l'instance 4.6.10
 
+Après validation de la migration et du SSO, le fichier
+`/docker-compose.production.yml` permet de conserver l'instance restaurée en
+production. Il réutilise exactement les volumes et réglages de ce déploiement.
+Conserver `/etc/netbox-migration/settings.json` et les volumes `migration-*`, même
+lors du nettoyage des sauvegardes et de l'ancienne installation.
+
 Cette image de préparation utilise NetBox 4.6.10 et les cinq versions de plugins
 relevées sur l'ancienne instance. L'archive officielle est vérifiée par SHA-256 ;
 les dépendances de NetBox et des plugins sont résolues ensemble.
