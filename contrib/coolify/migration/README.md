@@ -39,8 +39,8 @@ personnalisés hors plugins : les inventorier avant la bascule.
 
 Créer une **nouvelle ressource Coolify**, avec un projet et des volumes distincts,
 le même dépôt et `/docker-compose.migration.yml` comme fichier Compose.
-Ajouter `NETBOX_MIGRATION_SETTINGS_DIR=/etc/netbox-migration` aux variables de cette
-ressource. Le répertoire doit exister sur le serveur Docker. Configurer un domaine
+Le répertoire `/etc/netbox-migration` doit exister sur le serveur Docker ; il est
+monté en lecture seule dans les services netbox et worker. Configurer un domaine
 temporaire sur `web:8080` et les variables générées comme pour la stack principale.
 
 Ne jamais pointer cette image 4.6.10 vers la base déjà initialisée en 4.7.3.

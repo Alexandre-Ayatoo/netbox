@@ -24,6 +24,7 @@ def main(migration=False):
             port = listener.getsockname()[1]
         url = f'http://localhost:{port}'
         values = {'SERVICE_URL_WEB': url}
+        override_services = {'web': {'ports': [f'127.0.0.1:{port}:8080']}}
         compose_file = repository / 'docker-compose.yml'
         if migration:
             compose_file = repository / 'docker-compose.migration.yml'
@@ -41,7 +42,8 @@ def main(migration=False):
             }))
             # Only fake test secrets: permit the container user to read this bind mount.
             settings_file.chmod(0o644)
-            values['NETBOX_MIGRATION_SETTINGS_DIR'] = str(settings_dir)
+            for service in ('netbox', 'worker'):
+                override_services[service] = {'volumes': [f'{settings_dir}:/etc/netbox-migration:ro']}
         for key in ('SECRET', 'PEPPER', 'POSTGRES', 'REDIS', 'ADMIN'):
             values[f'SERVICE_PASSWORD_64_{key}'] = secrets.token_hex(32)
         env_file = temporary / 'stack.env'
@@ -49,7 +51,7 @@ def main(migration=False):
         os.chmod(env_file, 0o600)
         override = temporary / 'override.json'
         override.write_text(json.dumps({
-            'services': {'web': {'ports': [f'127.0.0.1:{port}:8080']}},
+            'services': override_services,
         }))
         compose = [
             'docker', 'compose', '--project-name', f'netbox-test-{secrets.token_hex(4)}',

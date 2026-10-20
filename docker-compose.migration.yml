@@ -15,7 +15,7 @@ services:
       context: .
       dockerfile: contrib/coolify/migration/Dockerfile
     volumes:
-      - ${NETBOX_MIGRATION_SETTINGS_DIR:?}:/etc/netbox-migration:ro
+      - /etc/netbox-migration:/etc/netbox-migration:ro
 
   worker:
     extends:
@@ -25,7 +25,7 @@ services:
       context: .
       dockerfile: contrib/coolify/migration/Dockerfile
     volumes:
-      - ${NETBOX_MIGRATION_SETTINGS_DIR:?}:/etc/netbox-migration:ro
+      - /etc/netbox-migration:/etc/netbox-migration:ro
 
   postgres:
     extends:
