@@ -1,0 +1,46 @@
+# Use a separate Coolify resource/project: never start 4.6 against the existing 4.7 database.
+services:
+  web:
+    extends:
+      file: docker-compose.yml
+      service: web
+    build:
+      context: .
+
+  netbox:
+    extends:
+      file: docker-compose.yml
+      service: netbox
+    build:
+      context: .
+      dockerfile: contrib/coolify/migration/Dockerfile
+    volumes:
+      - ${NETBOX_MIGRATION_SETTINGS_DIR:?}:/etc/netbox-migration:ro
+
+  worker:
+    extends:
+      file: docker-compose.yml
+      service: worker
+    build:
+      context: .
+      dockerfile: contrib/coolify/migration/Dockerfile
+    volumes:
+      - ${NETBOX_MIGRATION_SETTINGS_DIR:?}:/etc/netbox-migration:ro
+
+  postgres:
+    extends:
+      file: docker-compose.yml
+      service: postgres
+
+  redis:
+    extends:
+      file: docker-compose.yml
+      service: redis
+
+volumes:
+  postgres-data:
+  redis-data:
+  netbox-static:
+  netbox-media:
+  netbox-scripts:
+  netbox-reports:

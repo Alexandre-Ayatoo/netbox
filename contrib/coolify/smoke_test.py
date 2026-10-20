@@ -1,5 +1,6 @@
 """Build and exercise an isolated Compose deployment, then remove its resources."""
 
+import argparse
 import http.cookiejar
 import json
 import os
@@ -14,7 +15,7 @@ from urllib.parse import urlencode
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 
-def main():
+def main(migration=False):
     repository = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix='netbox-coolify-test-') as directory:
         temporary = Path(directory)
@@ -23,6 +24,24 @@ def main():
             port = listener.getsockname()[1]
         url = f'http://localhost:{port}'
         values = {'SERVICE_URL_WEB': url}
+        compose_file = repository / 'docker-compose.yml'
+        if migration:
+            compose_file = repository / 'docker-compose.migration.yml'
+            settings_dir = temporary / 'settings'
+            settings_dir.mkdir(mode=0o755)
+            settings_file = settings_dir / 'settings.json'
+            settings_file.write_text(json.dumps({
+                'SECRET_KEY': secrets.token_hex(32),
+                'API_TOKEN_PEPPERS': {1: secrets.token_hex(32)},
+                'PLUGINS': [
+                    'netbox_inventory', 'ipfabric_netbox', 'netbox_bgp',
+                    'netbox_interface_synchronization', 'netbox_branching',
+                ],
+                'PLUGINS_CONFIG': {},
+            }))
+            # Only fake test secrets: permit the container user to read this bind mount.
+            settings_file.chmod(0o644)
+            values['NETBOX_MIGRATION_SETTINGS_DIR'] = str(settings_dir)
         for key in ('SECRET', 'PEPPER', 'POSTGRES', 'REDIS', 'ADMIN'):
             values[f'SERVICE_PASSWORD_64_{key}'] = secrets.token_hex(32)
         env_file = temporary / 'stack.env'
@@ -34,7 +53,7 @@ def main():
         }))
         compose = [
             'docker', 'compose', '--project-name', f'netbox-test-{secrets.token_hex(4)}',
-            '--env-file', str(env_file), '-f', str(repository / 'docker-compose.yml'),
+            '--env-file', str(env_file), '-f', str(compose_file),
             '-f', str(override),
         ]
 
@@ -51,6 +70,14 @@ def main():
                     print('\n'.join(log_file.read_text().splitlines()[-60:]))
                     run('logs', '--tail', '60')
                     raise
+
+            if migration:
+                run('exec', '-T', 'netbox', 'python', 'manage.py', 'shell', '--no-imports', '-c',
+                    "from django.conf import settings; "
+                    "from django.apps import apps; "
+                    "assert settings.VERSION == '4.6.10'; "
+                    "assert len(settings.PLUGINS) == 5; "
+                    "assert apps.get_model('netbox_branching', 'Branch').objects.count() == 0")
 
             with urlopen(f'{url}/static/netbox.css', timeout=15) as response:
                 assert response.status == 200
@@ -94,4 +121,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--migration', action='store_true', help='Test the isolated 4.6.10 migration stack.')
+    main(migration=parser.parse_args().migration)
