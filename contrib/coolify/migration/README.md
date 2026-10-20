@@ -19,21 +19,31 @@ de l'ancienne instance. Depuis `/opt/netbox/netbox`, en tant que root :
 install -d -m 0750 -o root -g 1000 /etc/netbox-migration
 umask 077
 /opt/netbox/venv/bin/python manage.py shell --no-imports \
-  < /root/export_settings.py > /etc/netbox-migration/settings.json
-python3 -m json.tool /etc/netbox-migration/settings.json > /dev/null
-chown root:1000 /etc/netbox-migration/settings.json
-chmod 0640 /etc/netbox-migration/settings.json
+  < /root/export_settings.py > /etc/netbox-migration/settings.json.tmp
+python3 -m json.tool /etc/netbox-migration/settings.json.tmp > /dev/null \
+  && chown root:1000 /etc/netbox-migration/settings.json.tmp \
+  && chmod 0640 /etc/netbox-migration/settings.json.tmp \
+  && mv /etc/netbox-migration/settings.json.tmp /etc/netbox-migration/settings.json
 ```
 
 Le fichier contient la clé Django, les peppers API et la configuration des plugins,
-y compris les secrets IP Fabric. Ne pas l'afficher, le committer ou l'ajouter au
+y compris les secrets IP Fabric et les paramètres `REMOTE_AUTH_*` et `SOCIAL_AUTH_*`
+explicitement définis dans l'ancienne configuration (dont les secrets SSO).
+Ne pas l'afficher, le committer ou l'ajouter au
 contexte de construction Docker. L'image le lit au démarrage depuis un montage
 en lecture seule. Le groupe 1000 correspond à l'utilisateur de l'image ; adapter
 les permissions en cas de Docker rootless ou de remappage des utilisateurs.
 
 L'export ne reprend pas la base ou Redis de l'hôte. Il ne reprend pas non plus les
-éventuels réglages LDAP/SSO, email, stockage distant, validateurs ou autres réglages
+éventuels réglages `AUTH_LDAP_*`, email, stockage distant, validateurs ou autres réglages
 personnalisés hors plugins : les inventorier avant la bascule.
+
+Pour ajouter le SSO après une première migration, sauvegarder le fichier privé,
+puis refaire cet export depuis l'ancienne installation et redéployer l'image
+mise à jour. La base migrée et les volumes restent en place ; ne pas refaire la
+restauration de la base. Avec le même domaine public, les URL de retour existantes
+du client Keycloak peuvent être conservées. Vérifier ensuite la présence du bouton
+Keycloak et effectuer une connexion réelle depuis le navigateur.
 
 ## Stack de préparation isolée
 
