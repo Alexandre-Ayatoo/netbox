@@ -37,14 +37,21 @@ personnalisés hors plugins : les inventorier avant la bascule.
 
 ## Stack de préparation isolée
 
-Créer une **nouvelle ressource Coolify**, avec un projet et des volumes distincts,
-le même dépôt et `/docker-compose.migration.yml` comme fichier Compose.
+Utiliser le même dépôt et `/docker-compose.migration.yml` comme fichier Compose.
+Ce fichier est autonome, sans `extends`, pour que Coolify puisse analyser tous les
+services et leurs volumes. Les six volumes portent le préfixe `migration-` : ils
+sont distincts des volumes de la stack 4.7 même dans la même ressource Coolify.
+Une nouvelle ressource reste possible pour tester les deux stacks en parallèle.
 Le répertoire `/etc/netbox-migration` doit exister sur le serveur Docker ; il est
-monté en lecture seule dans les services netbox et worker. Configurer un domaine
-temporaire sur `web:8080` et les variables générées comme pour la stack principale.
+monté en lecture seule dans les services netbox et worker. Configurer les variables
+générées comme pour la stack principale. Pour une nouvelle ressource, un domaine
+temporaire sur `web:8080` est facultatif : sans domaine, renseigner manuellement
+`SERVICE_URL_WEB` avec l'URL publique prévue.
 
 Ne jamais pointer cette image 4.6.10 vers la base déjà initialisée en 4.7.3.
-Ne pas modifier les volumes de la ressource 4.7 existante.
+Ne pas renommer les volumes `migration-*` pour les faire correspondre aux volumes
+existants de la stack 4.7. Le déploiement sur la même ressource remplace les
+conteneurs actifs par une instance 4.6.10 initialement vide, avant restauration.
 
 La stack isolée permet de tester une restauration du dump avec tous les plugins
 avant la migration finale. Arrêter ses services web, netbox et worker avant toute

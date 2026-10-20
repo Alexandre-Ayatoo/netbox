@@ -1,46 +1,118 @@
-# Use a separate Coolify resource/project: never start 4.6 against the existing 4.7 database.
+# Standalone migration stack for Coolify. Keep these volumes separate from the 4.7 stack.
+x-netbox: &netbox
+  build:
+    context: .
+    dockerfile: contrib/coolify/migration/Dockerfile
+    target: application
+  restart: unless-stopped
+  init: true
+  environment: &environment
+    NETBOX_URL: ${SERVICE_URL_WEB:?}
+    SECRET_KEY: ${SERVICE_PASSWORD_64_SECRET:?}
+    API_TOKEN_PEPPER: ${SERVICE_PASSWORD_64_PEPPER:?}
+    DB_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES:?}
+    REDIS_PASSWORD: ${SERVICE_PASSWORD_64_REDIS:?}
+    GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+  volumes:
+    - /etc/netbox-migration:/etc/netbox-migration:ro
+    - migration-netbox-media:/opt/netbox/netbox/media
+    - migration-netbox-scripts:/opt/netbox/netbox/scripts
+    - migration-netbox-reports:/opt/netbox/netbox/reports
+
 services:
   web:
-    extends:
-      file: docker-compose.yml
-      service: web
     build:
       context: .
+      target: proxy
+    restart: unless-stopped
+    expose:
+      - "8080"
+    depends_on:
+      netbox:
+        condition: service_healthy
+    volumes:
+      - migration-netbox-static:/opt/netbox/netbox/static:ro
+    healthcheck:
+      test: [CMD, wget, --quiet, --spider, http://127.0.0.1:8080/login/]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   netbox:
-    extends:
-      file: docker-compose.yml
-      service: netbox
-    build:
-      context: .
-      dockerfile: contrib/coolify/migration/Dockerfile
+    <<: *netbox
+    environment:
+      <<: *environment
+      DJANGO_SUPERUSER_USERNAME: ${NETBOX_ADMIN_USERNAME:-admin}
+      DJANGO_SUPERUSER_EMAIL: ${NETBOX_ADMIN_EMAIL:-admin@example.com}
+      DJANGO_SUPERUSER_PASSWORD: ${SERVICE_PASSWORD_64_ADMIN:?}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - /etc/netbox-migration:/etc/netbox-migration:ro
+      - migration-netbox-static:/opt/netbox/netbox/static
+      - migration-netbox-media:/opt/netbox/netbox/media
+      - migration-netbox-scripts:/opt/netbox/netbox/scripts
+      - migration-netbox-reports:/opt/netbox/netbox/reports
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --output, /dev/null, http://127.0.0.1:8001/login/]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 600s
 
   worker:
-    extends:
-      file: docker-compose.yml
-      service: worker
-    build:
-      context: .
-      dockerfile: contrib/coolify/migration/Dockerfile
-    volumes:
-      - /etc/netbox-migration:/etc/netbox-migration:ro
+    <<: *netbox
+    command: [worker]
+    depends_on:
+      netbox:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, /opt/netbox/contrib/coolify/worker_health.py]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
 
   postgres:
-    extends:
-      file: docker-compose.yml
-      service: postgres
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: netbox
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES:?}
+    volumes:
+      - migration-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
-    extends:
-      file: docker-compose.yml
-      service: redis
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${SERVICE_PASSWORD_64_REDIS:?}
+    command:
+      - /bin/sh
+      - -ec
+      - 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"'
+    volumes:
+      - migration-redis-data:/data
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
 volumes:
-  postgres-data:
-  redis-data:
-  netbox-static:
-  netbox-media:
-  netbox-scripts:
-  netbox-reports:
+  migration-postgres-data:
+  migration-redis-data:
+  migration-netbox-static:
+  migration-netbox-media:
+  migration-netbox-scripts:
+  migration-netbox-reports:
